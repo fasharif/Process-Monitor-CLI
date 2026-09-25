@@ -6,6 +6,19 @@
 A small `top`-style process monitor for Linux, written in C. It reads `/proc` directly and
 lists each process's CPU and memory use, sorted by whichever you care about.
 
+```
+$ ./proc_monitor -n 6
+    PID   CPU%   RSS(KiB) S NAME
+   1903   28.9     127136 S Runner.Worker
+    775    1.0      51196 S php-fpm8.3
+    865    1.0      45944 S containerd
+   1839    0.0     156364 S provjobd1861240
+   1882    0.0      97844 S Runner.Listener
+   1017    0.0      72660 S dockerd
+```
+
+*Output captured on a GitHub Actions runner.*
+
 ## Usage
 
 ```bash
