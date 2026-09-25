@@ -1,18 +1,70 @@
 # Process-Monitor-CLI
-A lightweight Linux command-line program that reads /proc and shows CPU & memory usage for each running process — similar to a tiny top.
-This highlights your systems and green awareness (seeing what uses energy) 🖥️.
 
-✅ Run it:
+[![CI](https://github.com/fasharif/Process-Monitor-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/fasharif/Process-Monitor-CLI/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+A small `top`-style process monitor for Linux, written in C. It reads `/proc` directly and
+lists each process's CPU and memory use, sorted by whichever you care about.
+
+## Usage
+
+```bash
 make
+./proc_monitor               # every process, busiest first, measured over 1 second
+./proc_monitor -n 10 -s mem  # the 10 processes using the most memory
+./proc_monitor -h            # all options
+```
 
-./proc_monitor | head -20
+| Option | Meaning | Default |
+| --- | --- | --- |
+| `-i SECONDS` | How long to measure CPU use for (0.1 to 60) | 1 |
+| `-n COUNT` | Show only the first COUNT processes | all |
+| `-s cpu` or `-s mem` | Sort by CPU or by memory | `cpu` |
 
-You’ll see:
+Columns: `PID`, `CPU%` (100% is one full core, as in `top`), `RSS(KiB)` (memory actually held
+in RAM), `S` (process state) and `NAME`.
 
-PID    NAME                      CPU      MEMORY
---------------------------------------------------------------
-1      systemd                   0.00%    3456 KB
-42     bash                      0.10%    2048 KB
+Requires Linux, a C11 compiler and `make`.
 
-This reads /proc, calculates basic CPU usage, and prints memory (RSS) — a minimalist “green” system monitor.
+## How it works
+
+- **Memory** is the resident set size: field 24 of `/proc/[pid]/stat`, a number of pages,
+  multiplied by the page size from `sysconf(_SC_PAGESIZE)`.
+- **CPU%** comes from two readings of each process's CPU time (fields 14 and 15, `utime` and
+  `stime`) taken `-i` seconds apart: the CPU time used in between, divided by the time that
+  passed. This is how `top` measures current use.
+- **Names** can contain spaces and parentheses (`my (odd) proc`), so the parser takes the name
+  from the first `(` to the last `)` instead of splitting the line on spaces.
+- A process that exits between readings is skipped.
+
+## Testing
+
+```bash
+make test         # unit tests: /proc parsing, CPU and memory maths
+make integration  # runs the program on fixture data and checks its memory figure against ps
+make sanitize     # both suites under AddressSanitizer and UndefinedBehaviorSanitizer
+```
+
+GitHub Actions runs all three on every push and pull request, builds with both GCC and Clang,
+and runs cppcheck.
+
+## Project structure
+
+```
+include/proc.h            parser and calculation interface
+src/proc.c                /proc/[pid]/stat parser, CPU% and memory calculations
+src/main.c                options, sampling, sorting and output
+tests/test_proc.c         unit tests
+tests/run_integration.sh  end-to-end checks
+tests/fixtures/proc/      a small fake /proc tree used by the tests
+```
+
+## Limitations
+
+- Linux only, because it reads `/proc`.
+- Prints one snapshot and exits; it does not refresh like `top`.
+- A process that starts during the measuring interval is shown with 0% CPU.
+
+## License
+
+[MIT](LICENSE)
