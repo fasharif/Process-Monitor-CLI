@@ -1,0 +1,4 @@
+# Build output
+/proc_monitor
+*.o
+/tests/test_proc
