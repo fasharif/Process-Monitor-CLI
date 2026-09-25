@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build with warnings as errors
+        run: make CC=${{ matrix.compiler }}
+
+      - name: Unit tests
+        run: make CC=${{ matrix.compiler }} test
+
+      - name: Integration tests
+        run: make CC=${{ matrix.compiler }} integration
+
+      - name: Sample output
+        run: ./proc_monitor -n 10
+
+  sanitizers:
+    name: AddressSanitizer and UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Recent kernels use more address-space randomisation than older sanitizer runtimes expect.
+      - name: Reduce ASLR entropy for the sanitizer runtime
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Unit and integration tests under sanitizers
+        run: make sanitize
+
+  cppcheck:
+    name: Static analysis (cppcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: Run cppcheck
+        run: cppcheck --std=c11 --enable=warning,performance,portability --error-exitcode=1 --inline-suppr -I include src tests
